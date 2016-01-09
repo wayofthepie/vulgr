@@ -5,9 +5,7 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
-module Lib
-    ( startApp
-    ) where
+module Lib where
 
 import Control.Monad.Reader
 import Control.Monad.Trans (lift)
