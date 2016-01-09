@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving  #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
@@ -6,8 +8,9 @@ module Lib
     ( startApp
     ) where
 
-import Control.Monad.Trans.Either
 import Control.Monad.Reader
+import Control.Monad.Trans.Either
+import Control.Monad.Trans.Reader
 import Data.Aeson
 import Data.Aeson.TH
 import Data.ByteString.Char8 as BS
@@ -28,36 +31,37 @@ data Component = Component
 
 $(deriveJSON defaultOptions ''Component)
 
-type ReaderAPI = "components" :> ReqBody '[JSON] [Component] :> Post '[JSON] [Component]
+type API = "components" :> ReqBody '[JSON] [Component] :> Post '[JSON] [Component]
+
+newtype App a = App { runApp :: ReaderT Neo.Connection IO a }
+    deriving (Monad, Functor, Applicative, MonadReader Neo.Connection, MonadIO)
+
 
 startApp :: IO ()
-startApp = run 8080 app
+startApp = do
+    conn <- Neo.newConnection "" 1
+    run 8080 $ app conn
 
-app :: Application
-app = serve readerAPI readerServer
+app :: Neo.Connection -> Application
+app conn = serve readerAPI (readerServer conn)
 
-api :: Proxy ReaderAPI
+api :: Proxy API
 api = Proxy
 
-readerServerT :: ServerT ReaderAPI (Reader String)
+readerServerT :: ServerT API App
 readerServerT = postComponents
 
-readerServer :: Server ReaderAPI
-readerServer = enter readerToEither readerServerT
+runAppT :: Neo.Connection -> App a -> EitherT ServantErr IO a
+runAppT conn action = liftIO $ runReaderT (runApp action) conn
 
-postComponents :: [Component] -> Reader String [Component]
-postComponents cs = do
-    s <- ask
-    return (traceShow s $ cs)
+readerServer :: Neo.Connection -> Server API
+readerServer conn = enter (Nat $ (runAppT conn)) readerServerT
 
-readerToEither :: Reader String :~> EitherT ServantErr IO
-readerToEither = Nat readerToEither'
-
-readerToEither' :: forall a. Reader String a -> EitherT ServantErr IO a
-readerToEither' r = return (runReader r "hi")
-
-readerAPI :: Proxy ReaderAPI
+readerAPI :: Proxy API
 readerAPI = Proxy
+
+postComponents :: [Component] -> App [Component]
+postComponents cs = return cs
 
 
 {-
