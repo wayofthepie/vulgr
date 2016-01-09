@@ -14,7 +14,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src
+  hs-source-dirs:      vulgr-lib/src
   exposed-modules:
     Lib
     , Graph.Nvd
@@ -42,17 +42,26 @@ library
     , xml-conduit
   default-language:    Haskell2010
 
-executable vulgr-exe
-  hs-source-dirs:      app
+executable vulgr-service
+  hs-source-dirs:      vulgr-service/src
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , vulgr
   default-language:    Haskell2010
 
-test-suite vulgr-test
+executable vulgr-cli
+  hs-source-dirs:      vulgr-cli/src
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , vulgr
+  default-language:    Haskell2010
+
+
+test-suite vulgr-lib-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
+  hs-source-dirs:      vulgr-lib/test
   main-is:             Spec.hs
   build-depends:       base
                      , vulgr
