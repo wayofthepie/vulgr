@@ -17,17 +17,25 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Lib
+    , Graph.Nvd
     , Vulgr.XML.Types
 
   build-depends:
     base >= 4.7 && < 5
     , aeson
+    , bytestring
     , conduit
+    , containers
+    , either
+    , haskell-neo4j-client
+    , mtl
     , resourcet
+    , servant
     , servant-server
     , text
     , time
     , timerep
+    , unordered-containers
     , wai
     , warp
     , xml-conduit
