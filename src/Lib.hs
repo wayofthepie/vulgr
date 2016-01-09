@@ -79,10 +79,16 @@ postCves cs = do
 createCve :: Neo.Connection -> [Cve] -> IO T.Text
 createCve conn cves = do
     eitherResults <- n4jTransaction conn $ do
-        mapM cveNodeCypher cves-- TC.cypher "CREATE (fudge : FUDGE {cveId:{cveId}})" $ M.fromList [(T.pack "cveId", TC.newparam ("CVE-2016-1283" :: T.Text))]
+        mapM uniqCveNodeCypher cves
     return $ case eitherResults of
         Right _ -> "Success"
         Left e  -> fst e
+
+
+uniqCveNodeCypher :: Cve -> TC.Transaction TC.Result
+uniqCveNodeCypher cve =
+    TC.cypher ("MERGE ( n:CVE { cveId : {cveId}, summary : {summary}, " <>
+        "product : {product}, cvssScore : {cvssScore} } )") (cve2map cve)
   where
     cve2map cve = M.fromList [
         (T.pack "cveId", TC.newparam (cveId cve))
@@ -90,8 +96,7 @@ createCve conn cves = do
         , (T.pack "product", TC.newparam (product cve))
         , (T.pack "cvssScore", TC.newparam (cvssScore cve))
         ]
-    cveNodeCypher cve = TC.cypher ("CREATE ( n:CVE { cveId : {cveId}, summary : {summary}, " <>
-        "product : {product}, cvssScore : {cvssScore} } )") (cve2map cve)
+
 
 
 {-
