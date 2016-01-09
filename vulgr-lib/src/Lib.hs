@@ -37,8 +37,8 @@ data Cve = Cve
 $(deriveJSON defaultOptions ''Cve)
 
 type API =
-    "cves" :> ReqBody '[JSON] [Cve] :> Post '[JSON] T.Text
- --   :<|> "cves" :> Get '[JSON] [Cve]
+    "cves" :> Capture "cveId" T.Text :> Get '[JSON] String
+    :<|> "cves" :> ReqBody '[JSON] [Cve] :> Post '[JSON] T.Text
 
 newtype App a = App { runApp :: ReaderT Neo.Connection IO a }
     deriving (Monad, Functor, Applicative, MonadReader Neo.Connection, MonadIO)
@@ -56,7 +56,7 @@ api :: Proxy API
 api = Proxy
 
 readerServerT :: ServerT API App
-readerServerT = postCves -- :<|> getCves
+readerServerT = getCve :<|> postCves
 
 runAppT :: Neo.Connection -> App a -> EitherT ServantErr IO a
 runAppT conn action = liftIO $ runReaderT (runApp action) conn
@@ -82,7 +82,6 @@ createCve conn cves = do
         Right _ -> "Success"
         Left e  -> fst e
 
-
 uniqCveNodeCypher :: Cve -> TC.Transaction TC.Result
 uniqCveNodeCypher cve =
     TC.cypher ("MERGE ( n:CVE { cveId : {cveId}, summary : {summary}, " <>
@@ -95,12 +94,20 @@ uniqCveNodeCypher cve =
         , (T.pack "cvssScore", TC.newparam (cvssScore cve))
         ]
 
-
-
-{-
-getCves :: App [Cves]
-getCves = flip
--}
+-- Get a single cve - /cves/(cveId)
+getCve :: T.Text -> App String
+getCve cveid = do
+    conn <- ask
+    eitherResult <- liftIO $ n4jTransaction conn $ do
+        -- Note that we limit the number ofnodes to 1, this is because we only
+        -- enforce that these nodes are unique in the POST to create them, neo4j
+        -- does not enforce this uniqueness so if a node gets created by means other
+        -- than this API (or if we have a bug!) the MATCH may return more than one
+        -- node. So in that case just return one.
+        TC.cypher "MATCH (n: CVE {cveId : {cveId}}) RETURN n" $ M.fromList [("cveId", TC.newparam cveid)]
+    case eitherResult of
+        Right result -> return (show $ graph result)
+        Left e -> return $ T.unpack (fst e <> snd e)
 
 -- Helpers
 n4jTransaction :: Neo.Connection -> Transaction a -> IO (Either TC.TransError a)
