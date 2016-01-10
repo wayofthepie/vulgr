@@ -73,7 +73,7 @@ readerAPI = Proxy
 
 -- | Post to /cves
 postCves :: [Cve] -> App T.Text
-postCves cs = do
+postCves cs = traceShow "Called post..." $ do
     conn <- ask
     liftIO $ createCve conn cs
 
@@ -88,7 +88,7 @@ createCve conn cves = do
 uniqCveNodeCypher :: Cve -> TC.Transaction TC.Result
 uniqCveNodeCypher cve =
     TC.cypher ("MERGE ( n:CVE { cveId : {cveId}, summary : {summary}, " <>
-        "product : {product}, cvssScore : {cvssScore} } )") (cve2map cve)
+        "product : {product}, cvssScore : {cvssScore} } )") (traceShow (cve2map cve) $ cve2map cve)
   where
     cve2map cve = M.fromList [
         (T.pack "cveId", TC.newparam (cveId cve))

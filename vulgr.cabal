@@ -58,7 +58,9 @@ executable vulgr-cli
   build-depends:
     base
     , either
+    , servant
     , servant-client
+    , xml-conduit
     , vulgr
   default-language:    Haskell2010
 
