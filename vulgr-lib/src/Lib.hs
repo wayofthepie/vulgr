@@ -9,12 +9,9 @@ module Lib where
 
 import Control.Lens.Operators
 import Control.Monad.Reader
-import Control.Monad.Trans (lift)
-import Control.Monad.Trans.Either
 import Data.Aeson
 import Data.Aeson.Lens
 import Data.Aeson.TH
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as M
 import Data.Maybe
 import Data.Monoid
@@ -22,8 +19,6 @@ import qualified Data.Text as T
 import Data.Proxy
 import Database.Neo4j as Neo
 import Database.Neo4j.Transactional.Cypher as TC
-import Network.Wai
-import Network.Wai.Handler.Warp
 import Servant
 
 import Prelude hiding (product)
@@ -46,29 +41,8 @@ type API =
 newtype App a = App { runApp :: ReaderT Neo.Connection IO a }
     deriving (Monad, Functor, Applicative, MonadReader Neo.Connection, MonadIO)
 
-
-startApp :: IO ()
-startApp = do
-    !conn <- Neo.newAuthConnection "192.168.1.3" 7474 ("neo4j", "zantetsuken")
-    traceShow "Started..." $ run 8080 $ app conn
-
-app :: Neo.Connection -> Application
-app conn = serve readerAPI (readerServer conn)
-
 api :: Proxy API
 api = Proxy
-
-readerServerT :: ServerT API App
-readerServerT = getCve :<|> postCves
-
-runAppT :: Neo.Connection -> App a -> EitherT ServantErr IO a
-runAppT conn action = liftIO $ runReaderT (runApp action) conn
-
-readerServer :: Neo.Connection -> Server API
-readerServer conn = enter (Nat $ (runAppT conn)) readerServerT
-
-readerAPI :: Proxy API
-readerAPI = Proxy
 
 
 -- | Post to /cves
@@ -79,8 +53,7 @@ postCves cs = traceShow "Called post..." $ do
 
 createCve :: Neo.Connection -> [Cve] -> IO T.Text
 createCve conn cves = do
-    eitherResults <- n4jTransaction conn $ do
-        mapM uniqCveNodeCypher cves
+    eitherResults <- n4jTransaction conn $ mapM uniqCveNodeCypher cves
     return $ case eitherResults of
         Right _ -> "Success"
         Left e  -> fst e
@@ -104,7 +77,7 @@ uniqCveNodeCypher cve =
 getCve :: T.Text -> App [Cve]
 getCve cveid = do
     conn <- ask
-    eitherResult <- liftIO $ n4jTransaction conn $ do
+    eitherResult <- liftIO $ n4jTransaction conn $
         TC.cypher "MATCH (n: CVE {cveId : {cveId}}) RETURN n" $ M.fromList [("cveId", TC.newparam cveid)]
     case eitherResult of
         Right result -> return (jsonToCve $ vals result)
@@ -113,12 +86,11 @@ getCve cveid = do
     -- Turn a list of lists of Value's into a list of Cve's.
     jsonToCve :: [[Value]] -> [Cve]
     jsonToCve lvals = catMaybes . concat $
-        fmap (\jsonVals -> fmap (\obj -> obj ^? _JSON :: Maybe Cve) jsonVals) lvals
+        fmap (fmap (\obj -> obj ^? _JSON :: Maybe Cve)) lvals
 
 -- Helpers
 n4jTransaction :: Neo.Connection -> Transaction a -> IO (Either TC.TransError a)
-n4jTransaction conn action = flip Neo.runNeo4j conn $ do
-    TC.runTransaction $ do
-        action
+n4jTransaction conn action = flip Neo.runNeo4j conn $
+    TC.runTransaction action
 
 
