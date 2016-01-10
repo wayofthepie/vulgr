@@ -27,6 +27,8 @@ library
     , containers
     , either
     , haskell-neo4j-client
+    , lens
+    , lens-aeson
     , mtl
     , resourcet
     , servant
