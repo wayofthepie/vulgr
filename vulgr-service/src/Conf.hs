@@ -1,19 +1,35 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Conf where
 
+module Conf (
+    Conf (Conf)
+    , neo4jHost
+    , neo4jPort
+    , neo4jUser
+    , neo4jPassword
+    , readConfFile
+    ) where
+
+import qualified Data.Text as T
 import qualified Data.Text as T
 import Data.Yaml
 import GHC.Generics
-import System.FilePath (FilePath)
+import System.FilePath ()
 
 data Conf = Conf
-    { neo4jHost      :: T.Text
-    , neo4jPort      :: Int
-    , neo4jUser      :: T.Text
-    , neo4jPassword :: T.Text
+    { n4jHost     :: T.Text
+    , n4jPort     :: Int
+    , n4jUser     :: T.Text
+    , n4jPassword :: T.Text
+    , vListenPort :: Int
     } deriving (Eq, Generic, Show)
+
+neo4jHost = n4jHost
+neo4jPort = n4jPort
+neo4jUser = n4jUser
+neo4jPassword = n4jPassword
+vulgrListenPort = vListenPort
 
 instance FromJSON Conf
 
-parseConfFile :: FilePath -> IO (Either ParseException Conf)
-parseConfFile filep = decodeFileEither filep
+readConfFile :: FilePath -> IO (Either ParseException Conf)
+readConfFile filep = decodeFileEither filep
