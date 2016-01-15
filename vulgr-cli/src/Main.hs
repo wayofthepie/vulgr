@@ -12,7 +12,7 @@ import Text.XML.Cursor
 
 import Prelude hiding (readFile)
 
-import Lib (API, Cve(..))
+import Vulgr.API (API, Cve(..))
 
 
 main :: IO ()

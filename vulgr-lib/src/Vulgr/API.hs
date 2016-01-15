@@ -5,13 +5,20 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
-module Lib where
+
+module Vulgr.API
+    ( module Vulgr.Cve
+    , API
+    , App (..)
+    , api
+    , getCve
+    , postCves
+    ) where
 
 import Control.Lens.Operators
 import Control.Monad.Reader
 import Data.Aeson
 import Data.Aeson.Lens
-import Data.Aeson.TH
 import qualified Data.HashMap.Strict as M
 import Data.Maybe
 import Data.Monoid
@@ -25,14 +32,9 @@ import Prelude hiding (product)
 
 import Debug.Trace
 
-data Cve = Cve
-    { cveId :: T.Text
-    , summary :: T.Text
-    , product :: T.Text -- in cpe form...?
-    , cvssScore:: T.Text
-    } deriving (Eq, Show)
+import Vulgr.Cve
+import Vulgr.Neo4j
 
-$(deriveJSON defaultOptions ''Cve)
 
 type API =
     "cves" :> Capture "cveId" T.Text :> Get '[JSON] [Cve]
@@ -70,6 +72,7 @@ uniqCveNodeCypher cve =
         , (T.pack "cvssScore", TC.newparam (cvssScore cve))
         ]
 
+
 -- | Get the nodes corresponding to a Cve ID.
 -- Note that this can be more than one node, Cve ID's are enforced
 -- through this API as a unique constraint however it is not
@@ -87,10 +90,5 @@ getCve cveid = do
     jsonToCve :: [[Value]] -> [Cve]
     jsonToCve lvals = catMaybes . concat $
         fmap (fmap (\obj -> obj ^? _JSON :: Maybe Cve)) lvals
-
--- Helpers
-n4jTransaction :: Neo.Connection -> Transaction a -> IO (Either TC.TransError a)
-n4jTransaction conn action = flip Neo.runNeo4j conn $
-    TC.runTransaction action
 
 

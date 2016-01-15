@@ -13,7 +13,8 @@ import Servant
 import System.Environment
 
 import Conf
-import Lib
+
+import Vulgr.API
 
 main :: IO ()
 main = do

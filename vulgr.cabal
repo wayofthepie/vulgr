@@ -17,8 +17,11 @@ library
   hs-source-dirs:      vulgr-lib/src
   ghc-options:         -fwarn-unused-imports
   exposed-modules:
-    Lib
-    , Vulgr.XML.Types
+    Vulgr.API
+
+  other-modules:
+    Vulgr.Cve
+    Vulgr.Neo4j
 
   build-depends:
     base >= 4.7 && < 5
