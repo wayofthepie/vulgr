@@ -3,7 +3,6 @@
 module Main where
 
 import Control.Monad.Reader
-import Control.Monad.Trans.Either
 import Database.Neo4j as Neo
 import qualified Data.Text.Encoding as T
 import Data.Yaml
@@ -37,17 +36,4 @@ startApp (Conf host port user password listenPort) = do
     run listenPort $ app conn
   where
     txt2Bs = T.encodeUtf8
-
-app :: Neo.Connection -> Application
-app conn = serve api (readerServer conn)
-
-readerServerT :: ServerT API App
-readerServerT = getCve :<|> postCves
-
-runAppT :: Neo.Connection -> App a -> EitherT ServantErr IO a
-runAppT conn action = liftIO $ runReaderT (runApp action) conn
-
-readerServer :: Neo.Connection -> Server API
-readerServer conn = enter (Nat (runAppT conn)) readerServerT
-
 

@@ -8,15 +8,18 @@
 
 module Vulgr.API
     ( module Vulgr.Cve
+    , module Vulgr.CPE.Types
     , API
     , App (..)
     , api
+    , app
     , getCve
     , postCves
     ) where
 
 import Control.Lens.Operators
 import Control.Monad.Reader
+import Control.Monad.Trans.Either
 import Data.Aeson
 import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as M
@@ -26,6 +29,7 @@ import qualified Data.Text as T
 import Data.Proxy
 import Database.Neo4j as Neo
 import Database.Neo4j.Transactional.Cypher as TC
+import Network.Wai
 import Servant
 
 import Prelude hiding (product)
@@ -33,18 +37,35 @@ import Prelude hiding (product)
 import Debug.Trace
 
 import Vulgr.Cve
+import Vulgr.CPE.Types
 import Vulgr.Neo4j
 
 
 type API =
     "cves" :> Capture "cveId" T.Text :> Get '[JSON] [Cve]
     :<|> "cves" :> ReqBody '[JSON] [Cve] :> Post '[JSON] T.Text
+    :<|> "cpes" :> ReqBody '[JSON] [CpeItem] :> Post '[JSON] T.Text
 
 newtype App a = App { runApp :: ReaderT Neo.Connection IO a }
     deriving (Monad, Functor, Applicative, MonadReader Neo.Connection, MonadIO)
 
 api :: Proxy API
 api = Proxy
+
+app :: Neo.Connection -> Application
+app conn = serve api (readerServer conn)
+
+readerServerT :: ServerT API App
+readerServerT =
+    getCve
+    :<|> postCves
+    :<|> postCpes
+
+runAppT :: Neo.Connection -> App a -> EitherT ServantErr IO a
+runAppT conn action = liftIO $ runReaderT (runApp action) conn
+
+readerServer :: Neo.Connection -> Server API
+readerServer conn = enter (Nat (runAppT conn)) readerServerT
 
 
 -- | Post to /cves
@@ -90,5 +111,28 @@ getCve cveid = do
     jsonToCve :: [[Value]] -> [Cve]
     jsonToCve lvals = catMaybes . concat $
         fmap (fmap (\obj -> obj ^? _JSON :: Maybe Cve)) lvals
+
+
+-- | Post to /cpes.
+postCpes :: [CpeItem] -> App T.Text
+postCpes cpes = traceShow "Post cpes ..." $ do
+    conn <- ask
+    liftIO $ createCpes conn cpes
+
+createCpes :: Neo.Connection -> [CpeItem] -> IO T.Text
+createCpes conn cpes = do
+    eitherResults <- n4jTransaction conn $ mapM uniqCpeNodeCypher cpes
+    return $ case eitherResults of
+        Right _ -> "Success"
+        Left e  -> fst e
+
+uniqCpeNodeCypher :: CpeItem -> TC.Transaction TC.Result
+uniqCpeNodeCypher cpe =
+    TC.cypher ("MERGE ( n:CPE { cpeName : {cpeName}, title : {cpeTitle} } )") (cpe2map cpe)
+  where
+    cpe2map cpe = M.fromList [
+        (T.pack "cpeName", TC.newparam (cpeItemName cpe))
+        , (T.pack "cpeTitle", TC.newparam (cpeItemTitle cpe))
+        ]
 
 

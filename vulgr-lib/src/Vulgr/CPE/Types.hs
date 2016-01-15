@@ -18,6 +18,7 @@ data CpeList = CpeList
     , cpeItems  :: [CpeItem]
     } deriving (Eq, Generic, Show)
 
+instance FromJSON CpeList
 instance ToJSON CpeList
 
 data CpeListGenerator = CpeListGenerator
@@ -27,6 +28,7 @@ data CpeListGenerator = CpeListGenerator
     , cpeListGenTimestamp      :: LocalTime
     } deriving (Eq, Generic, Show)
 
+instance FromJSON CpeListGenerator
 instance ToJSON CpeListGenerator
 
 data CpeItem = CpeItem
@@ -36,6 +38,7 @@ data CpeItem = CpeItem
     , cpeItemRefs  :: Maybe [CpeItemReference]
     } deriving (Eq, Generic, Show)
 
+instance FromJSON CpeItem
 instance ToJSON CpeItem
 
 data CpeItemMeta = CpeItemMeta
@@ -44,6 +47,7 @@ data CpeItemMeta = CpeItemMeta
     , cpeItemMetaModDate:: T.Text
     } deriving (Eq, Generic, Show)
 
+instance FromJSON CpeItemMeta
 instance ToJSON CpeItemMeta
 
 data CpeItemReference = CpeItemReference
@@ -51,6 +55,7 @@ data CpeItemReference = CpeItemReference
     , cpeItemRefVal  :: T.Text
     } deriving (Eq, Generic, Show)
 
+instance FromJSON CpeItemReference
 instance ToJSON CpeItemReference
 
 
@@ -67,12 +72,12 @@ parseCpeList = tagIgnoreAttrs "{http://cpe.mitre.org/dictionary/2.0}cpe-list" $ 
 parseCpeItem :: MonadThrow m => Consumer Event m (Maybe CpeItem)
 parseCpeItem = tagName "{http://cpe.mitre.org/dictionary/2.0}cpe-item" cpeItemAttrParser $ \name -> do
     title <- many $ tagName "{http://cpe.mitre.org/dictionary/2.0}title" ignoreAttrs $ \_ -> content
-    _     <- traceShow title $ ignoreTreeName "{http://cpe.mitre.org/dictionary/2.0}references"
+    _     <- ignoreTreeName "{http://cpe.mitre.org/dictionary/2.0}references"
     _     <- ignoreTreeName "{http://cpe.mitre.org/dictionary/2.0}notes"
     _     <- ignoreTreeName "{http://cpe.mitre.org/dictionary/2.0}check"
     meta  <- force "no meta:item-metadata tag" $
         tagName "{http://scap.nist.gov/schema/cpe-dictionary-metadata/0.2}item-metadata" (metaDataAttrParser) $
-            \(nvdId, status, modDate) -> traceShow "attrs "$ do
+            \(nvdId, status, modDate) -> do
                 return $ CpeItemMeta nvdId status modDate
     return $ CpeItem name title meta Nothing
   where

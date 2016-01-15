@@ -76,9 +76,14 @@ executable vulgr-cli
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     base
+    , conduit
     , either
+    , resourcet
     , servant
     , servant-client
+    , split
+    , text
+    , transformers
     , xml-conduit
     , vulgr
   default-language:    Haskell2010

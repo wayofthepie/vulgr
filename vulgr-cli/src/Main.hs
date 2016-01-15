@@ -1,28 +1,39 @@
+{-# Language FlexibleContexts #-}
 {-# Language OverloadedStrings #-}
 
 module Main where
 
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Resource
+import Control.Monad.Trans.Either
+import Data.Conduit
 import Data.List
+import Data.List.Split
 import Data.Proxy
+import qualified Data.Text as T
 import Servant.API.Alternative
 import Servant.Client
 import Servant.Common.BaseUrl
 import Text.XML
 import Text.XML.Cursor
+import Text.XML.Stream.Parse hiding (content)
 
 import Prelude hiding (readFile)
 
-import Vulgr.API (API, Cve(..))
+import Vulgr.API
 
 
 main :: IO ()
 main = putStrLn "cli"
 
-api :: Proxy API
-api = Proxy
+getCve :<|> postCves :<|> postCpes = client api (BaseUrl Http "localhost" 8080)
 
-getCve :<|> postCves = client api (BaseUrl Http "localhost" 8080)
-
+loadCpesFromFile :: IO [Either ServantError T.Text]
+loadCpesFromFile = do
+    maybeCpes <- runResourceT $ parseFile def "/var/tmp/official-cpe-dictionary_v2.2-20141029-004153.xml" $$ parseCpeList
+    case maybeCpes of
+        Just cpes -> sequence $ fmap (runEitherT . postCpes) $ chunksOf 550 cpes
+        Nothing   -> error "error!"
 
 
 -- | Parse nvd details
