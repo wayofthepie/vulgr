@@ -20,6 +20,7 @@ library
     Vulgr.API
 
   other-modules:
+    Vulgr.CPE.Types
     Vulgr.Cve
     Vulgr.Neo4j
 
@@ -30,6 +31,7 @@ library
     , conduit
     , containers
     , either
+    , exceptions
     , haskell-neo4j-client
     , lens
     , lens-aeson
@@ -45,6 +47,7 @@ library
     , wai
     , warp
     , xml-conduit
+    , xml-types
   default-language:    Haskell2010
 
 executable vulgr-service
